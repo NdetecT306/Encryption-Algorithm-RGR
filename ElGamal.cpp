@@ -231,7 +231,6 @@ unsigned char decryptByte(const pair<mpz_class, mpz_class>& ciphertext, mpz_t x,
     mpz_init(m);
     mpz_powm(s, ciphertext.first.get_mpz_t(), x, p);
     if (mpz_invert(s_inv, s, p) == 0) {
-        cerr << "Ошибка: невозможно вычислить обратный элемент." << endl;
         return 0;
     }
     mpz_mul(m, ciphertext.second.get_mpz_t(), s_inv);
