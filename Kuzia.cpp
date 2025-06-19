@@ -239,7 +239,7 @@ bool createFile(const string& filePath) {
     cin >> choice;
     cin.ignore();
     if (tolower(choice) != 'y') {
-        cout << "Операция отменена." << endl;
+        cout << "Операция отменена. Возвращаю на главный экран." << endl;
         return false;
     }
     cout << "Введите текст для записи в файл: ";
@@ -332,7 +332,7 @@ void KuzFileEnc(const string& filePath) {
     }
     outFile.write(result.c_str(), result.size());
     outFile.close();
-    cout << "Файл успешно зашифрован." << endl;
+    cout << "Файл успешно расшифрован и перезаписан." << endl;
 }
 void KuzFileDec(const string& filePath) {
     if (!fs::exists(filePath)) {
@@ -365,12 +365,12 @@ void KuzFileDec(const string& filePath) {
     }
     outFile.write(result.c_str(), result.size());
     outFile.close();
-    cout << "Файл успешно расшифрован." << endl;
+    cout << "Файл успешно расшифрован и перезаписан." << endl;
 }
 void KuzTerEnc() {
     cin.ignore();
     string message;
-    cout << "Введите текст для шифровки: ";
+    cout << "Введите текст: ";
     getline(cin, message);
     vector<unsigned char> key = generateRandomKey(LENGTH * 2);
     saveKey(key);
@@ -389,7 +389,7 @@ void KuzTerEnc() {
         vector<unsigned char> encBlock = EncryptBlock(block, iterkey);
         encHex += toHexString(encBlock);
     }
-    cout << "Зашифрованное сообщение (hex): " << encHex << endl;
+    cout << "Зашифрованный текст: " << encHex << endl;
 }
 void KuzTerDec() {
     vector<unsigned char> key = readKeyFromFile();
@@ -411,7 +411,7 @@ void KuzTerDec() {
     if (end != string::npos) {
         decText = decText.substr(0, end + 1);
     }
-    cout << "Расшифрованное сообщение: " << decText << endl;
+    cout << "Расшифрованные данные: " << decText << endl;
 }
 int Kuzia() {
     try {
