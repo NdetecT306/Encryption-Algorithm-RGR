@@ -333,7 +333,7 @@ int ElGamDec(bool useFile) {
                 ciphertext.push_back({a, b});
             }
             catch (std::invalid_argument const& e) {
-                std::cerr << "Ошибка преобразования строки в число: " << e.what() << std::endl;
+                std::cerr << e.what() << std::endl;
                 return 1;
             }
             start = end + 1;
