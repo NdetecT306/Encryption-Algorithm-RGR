@@ -21,6 +21,8 @@ extern "C" {
 #endif
 
 int ElGamal_gmp();
+int ElGamDec(bool useFile);
+int ElGamEnc(bool useFile);
 
 #ifdef __cplusplus
 }
