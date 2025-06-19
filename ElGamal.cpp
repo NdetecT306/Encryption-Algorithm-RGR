@@ -345,7 +345,7 @@ int ElGamDec(bool useFile) {
         mpz_class x, p;
         ifstream keyFile("keyElGamal.txt");
         if (!keyFile.is_open()) {
-            cerr << "Ошибка: не удалось открыть файл keyElGamal.txt" << endl;
+            cerr << "Не удалось открыть файл с ключом!" << endl;
             return 1;
         }
         string line;
@@ -354,7 +354,7 @@ int ElGamDec(bool useFile) {
         if (xPos != string::npos) {
             x.set_str(line.substr(xPos + 4), 10);
         } else {
-            cerr << "Ошибка: неверный формат файла ключей (x)." << endl;
+            cerr << "Неверный формат файла ключей (x)." << endl;
             keyFile.close();
             return 1;
         }
@@ -363,7 +363,7 @@ int ElGamDec(bool useFile) {
         if (pPos != string::npos) {
             p.set_str(line.substr(pPos + 4), 10);
         } else {
-            cerr << "Ошибка: неверный формат файла ключей (p)." << endl;
+            cerr << "Неверный формат файла ключей (p)." << endl;
             keyFile.close();
             return 1;
         }
@@ -400,7 +400,7 @@ int ElGamDec(bool useFile) {
     mpz_class x, p;
     ifstream keyFile("keyElGamal.txt");
     if (!keyFile.is_open()) {
-        cerr << "Ошибка: не удалось открыть файл keyElGamal.txt" << endl;
+        cerr << "Не удалось открыть файл с ключом!" << endl;
         return 1;
     }
     string line;
@@ -409,7 +409,7 @@ int ElGamDec(bool useFile) {
     if (xPos != string::npos) {
         x.set_str(line.substr(xPos + 4), 10);
     } else {
-        cerr << "Ошибка: неверный формат файла ключей (x)." << endl;
+        cerr << "Неверный формат файла ключей (x)." << endl;
         keyFile.close();
         return 1;
     }
@@ -418,7 +418,7 @@ int ElGamDec(bool useFile) {
     if (pPos != string::npos) {
         p.set_str(line.substr(pPos + 4), 10);
     } else {
-        cerr << "Ошибка: неверный формат файла ключей (p)." << endl;
+        cerr << "Неверный формат файла ключей (p)." << endl;
         keyFile.close();
         return 1;
     }
