@@ -305,7 +305,7 @@ int ElGamDec(bool useFile) {
     string filePath;
     bool fileWasCreated = false;
     if (useFile) {
-        filePath = getFilePathWithChecks("Введите полный путь к файлу для расшифровки: ", fileWasCreated, true);
+        filePath = getFilePathWithChecks("Введите полный путь к файлу: ", fileWasCreated, true);
     } else {
         cout << "Введите зашифрованный текст в формате ((a,b) (a,b) и т.д.): ";
         string ciphertextStr;
@@ -448,7 +448,7 @@ int ElGamEnc(bool useFile) {
     string filePath;
     bool fileWasCreated = false;
     if (useFile) {
-        filePath = getFilePathWithChecks("Введите полный путь к файлу для шифрования: ", fileWasCreated);
+        filePath = getFilePathWithChecks("Введите полный путь к файлу: ", fileWasCreated);
     } else {
         myText = Terminal();
     }
