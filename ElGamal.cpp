@@ -466,7 +466,7 @@ int ElGamEnc(bool useFile) {
     RandomNumbers_gmp(x, mpz_class(2).get_mpz_t(), p_minus_1);
     ofstream keyFile("keyElGamal.txt");
     if (!keyFile.is_open()) {
-        cerr << "Не удалось создать файл keyElGamal.txt для хранения ключей." << endl;
+        cerr << "Не удалось создать файл для сохранения ключа!" << endl;
         return 1;
     }
     keyFile << "x = " << mpz_class(x).get_str() << endl;
