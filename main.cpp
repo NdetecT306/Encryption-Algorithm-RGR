@@ -86,7 +86,7 @@ int main() {
                         break;
                 }
             } catch (const exception& e) {
-                cerr << "Произошла ошибка: " << e.what() << endl;
+                cerr << e.what() << endl;
             }
         }
         else if (command == "HELP") {
