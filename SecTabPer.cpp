@@ -46,7 +46,7 @@ vector<unsigned char> readKeyFromFile(const string& filename, int keyNum) {
     vector<unsigned char> key;
     ifstream file(filename);
     if (!file.is_open()) {
-        wcout << L"Ошибка открытия файла с ключом: " << filename.c_str() << endl;
+        wcout << L"Ошибка открытия файла с ключом." << endl;
         return key;
     }
     string line;
@@ -197,17 +197,17 @@ void decConsole() {
     }
     vector<vector<unsigned char>> keys = getKeys(tableSize);
     if (keys[0].size() != tableSize || keys[1].size() != tableSize) {
-        wcout << L"Ошибка: неверный размер ключей!" << endl;
+        wcout << L"Неверный размер ключей." << endl;
         return;
     }
     vector<unsigned char> plaintext = SecTabDec(ciphertext, keys[0], keys[1]);
     string result(plaintext.begin(), plaintext.end());
     wstring wresult = stringToWstring(result);
-    wcout << L"Расшифрованный текст: " << wresult << endl;
+    wcout << L"Расшифрованные данные: " << wresult << endl;
 }
 void encFile() {
     wstring wfilename;
-    wcout << L"Введите имя файла для шифрования: ";
+    wcout << L"Введите путь к файлу: ";
     getline(wcin, wfilename);
     string filename = wstringToString(wfilename);
     try {
@@ -242,7 +242,7 @@ void encFile() {
 }
 void decFile() {
     wstring wfilename;
-    wcout << L"Введите имя файла для расшифровки: ";
+    wcout << L"Введите путь к файлу: ";
     getline(wcin, wfilename);
     string filename = wstringToString(wfilename);
     try {
@@ -300,10 +300,10 @@ int SecTab() {
         } else if (operation == 2 && mode == 2) {
             decFile();
         } else {
-            wcout << L"Неверный выбор!" << endl;
+            wcout << L"Допустимые операции обозначены ЦИФРАМИ 1 и 2." << endl;
         }
     } catch (const exception& e) {
-        wcout << L"Ошибка: " << stringToWstring(e.what()) << endl;
+        wcout << stringToWstring(e.what()) << endl;
         return 1;
     }
     return 0;
