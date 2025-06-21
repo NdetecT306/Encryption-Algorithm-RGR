@@ -220,11 +220,11 @@ bool createFile(const string& filePath) {
     fs::path path(filePath);
     fs::path dir = path.parent_path();
     if (!dir.empty() && !fs::exists(dir)) {
-        cout << "Директория " << dir.string() << " не существует. Создать? (y/n): ";
+        cout << "Директория не существует. Создать? (y/n): ";
         char choice;
         cin >> choice;
         if (tolower(choice) != 'y') {
-            cout << "Операция отменена." << endl;
+            cout << "Операция отменена. Возвращаю на главный экран." << endl;
             return false;
         }
         try {
@@ -234,7 +234,7 @@ bool createFile(const string& filePath) {
             return false;
         }
     }
-    cout << "Файл " << filePath << " не существует. Создать новый файл? (y/n): ";
+    cout << "Файл не существует. Создать новый файл? (y/n): ";
     char choice;
     cin >> choice;
     cin.ignore();
