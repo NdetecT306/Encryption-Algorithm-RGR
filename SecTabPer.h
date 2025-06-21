@@ -1,30 +1,26 @@
 #ifndef SEC_TAB_PER_H
 #define SEC_TAB_PER_H
-
-#include <vector>
-#include <string>
+#include <locale>
+#include <codecvt>
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <vector>
-#include <random>
 #include <algorithm>
+#include <random>
 #include <cmath>
-#include <locale>
-#include <codecvt>
+#include <climits>
+#include <thread>
+#include <chrono>
+#include <string>
 #include <stdexcept>
 #include <cstdint>
-#include <iostream>
-#include <vector>
-#include <algorithm>
-#include <random>
-#include <fstream>
-#include <sstream>
-#include <locale>
-#include <codecvt>
-#include <cmath>
-#include <cstdint>
 #include <filesystem>
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <cmath>
+#include <random>
 #ifdef __cplusplus
 extern "C" {
 #endif
