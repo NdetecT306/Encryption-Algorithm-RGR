@@ -42,7 +42,7 @@ string getFilePathWithChecks(const string& prompt, bool& wasCreated, bool forDec
                 }
                 try {
                     fs::create_directories(dir);
-                    cout << "Директория успешно создана." << endl;
+                    cout << "Директория успешно создана: " << dir.string() << endl;
                 } catch (const fs::filesystem_error& e) {
                     cerr << "Ошибка при создании директории: " << e.what() << endl;
                     continue;
@@ -64,7 +64,7 @@ string getFilePathWithChecks(const string& prompt, bool& wasCreated, bool forDec
                 file << fileContent;
                 file.close();
                 wasCreated = true;
-                cout << "Файл успешно создан." << endl;
+                cout << "Файл успешно создан: " << filePath << endl;
                 return filePath;
             } else {
                 cerr << "Не удалось создать файл." << endl;
@@ -190,11 +190,35 @@ void findPrimitiveRoot(mpz_t result, mpz_t p) {
         mpz_clear(factors[j]);
     }
 }
+void setRussianLocale() {
+    setlocale(LC_ALL, "ru_RU.UTF-8");
+    std::locale::global(std::locale("ru_RU.UTF-8"));
+}
 string Terminal() {
+    setRussianLocale();
     string input;
-    cout << "Введите текст: ";
+    cout << "Введите текст для шифровки: ";
     getline(cin, input);
     return input;
+}
+std::vector<int> getUnicodeCodepoints(const std::string& utf8_string) {
+    std::vector<int> codepoints;
+    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+    std::wstring wide_string = converter.from_bytes(utf8_string);
+
+    for (wchar_t wc : wide_string) {
+        codepoints.push_back(static_cast<int>(wc));
+    }
+
+    return codepoints;
+}
+string utf8_encode(const std::vector<int>& codepoints) {
+    std::wstring wide_string;
+    for (int codepoint : codepoints) {
+        wide_string += static_cast<wchar_t>(codepoint);
+    }
+    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+    return converter.to_bytes(wide_string);
 }
 mpz_class generatePrime(int numBits) {
     gmp_randclass rnd(gmp_randinit_mt);
@@ -207,14 +231,17 @@ mpz_class generatePrime(int numBits) {
     } while (mpz_probab_prime_p(prime.get_mpz_t(), 25) == 0);
     return prime;
 }
-pair<mpz_class, mpz_class> encryptByte(unsigned char byte, mpz_t g, mpz_t y, mpz_t p) {
-    mpz_class m = static_cast<int>(byte);
+pair<mpz_class, mpz_class> encryptCodepoint(int codepoint, mpz_t g, mpz_t y, mpz_t p, ofstream& keyFile) {
+    mpz_class m = codepoint; 
     mpz_t k;
     mpz_init(k);
     mpz_t p_minus_2;
     mpz_init(p_minus_2);
     mpz_sub_ui(p_minus_2, p, 2);
-    RandomNumbers_gmp(k, mpz_class(1).get_mpz_t(), p_minus_2);
+    RandomNumbers_gmp(k, mpz_class(1).get_mpz_t(), p_minus_2); 
+    if (keyFile.is_open()) {
+        keyFile << mpz_class(k).get_str() << " ";
+    }
     mpz_class a;
     mpz_powm(a.get_mpz_t(), g, k, p);
     mpz_class b;
@@ -224,47 +251,51 @@ pair<mpz_class, mpz_class> encryptByte(unsigned char byte, mpz_t g, mpz_t y, mpz
     mpz_clear(p_minus_2);
     return {a, b};
 }
-unsigned char decryptByte(const pair<mpz_class, mpz_class>& ciphertext, mpz_t x, mpz_t p) {
+int decryptCodepoint(const std::pair<mpz_class, mpz_class>& ciphertext, mpz_t x, mpz_t p) {
     mpz_t s, s_inv, m;
     mpz_init(s);
     mpz_init(s_inv);
     mpz_init(m);
     mpz_powm(s, ciphertext.first.get_mpz_t(), x, p);
     if (mpz_invert(s_inv, s, p) == 0) {
-        return 0;
+        cerr << "Ошибка: невозможно вычислить обратный элемент." << endl;
+        mpz_clear(s);
+        mpz_clear(s_inv);
+        mpz_clear(m);
+        return -1; 
     }
     mpz_mul(m, ciphertext.second.get_mpz_t(), s_inv);
     mpz_mod(m, m, p);
-    unsigned char decryptedByte = static_cast<unsigned char>(mpz_get_ui(m));
+    int decryptedCodepoint = mpz_get_si(m); 
     mpz_clear(s);
     mpz_clear(s_inv);
     mpz_clear(m);
-    return decryptedByte;
+    return decryptedCodepoint;
 }
 vector<unsigned char> readBinaryFile(const string& filename) {
     ifstream file(filename, ios::binary | ios::ate);
     if (!file.is_open()) {
-        throw runtime_error("Не удалось открыть файл " + filename);
+        throw runtime_error("Не удалось открыть файл: " + filename);
     }
     streamsize size = file.tellg();
     file.seekg(0, ios::beg);
     vector<unsigned char> buffer(size);
     if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-        throw runtime_error("Не удалось прочитать файл " + filename);
+        throw runtime_error("Не удалось прочитать файл: " + filename);
     }
     return buffer;
 }
 void writeBinaryFile(const string& filename, const vector<unsigned char>& data) {
     ofstream file(filename, ios::binary);
     if (!file.is_open()) {
-        throw runtime_error("Не удалось открыть файл для записи " + filename);
+        throw runtime_error("Не удалось открыть файл для записи: " + filename);
     }
     file.write(reinterpret_cast<const char*>(data.data()), data.size());
 }
 void writeEncryptedData(const string& filename, const vector<pair<mpz_class, mpz_class>>& ciphertext) {
     ofstream file(filename, ios::binary);
     if (!file.is_open()) {
-        throw runtime_error("Не удалось открыть файл для записи " + filename);
+        throw runtime_error("Не удалось открыть файл для записи: " + filename);
     }
     for (const auto& pair : ciphertext) {
         string a_str = pair.first.get_str();
@@ -280,20 +311,30 @@ void writeEncryptedData(const string& filename, const vector<pair<mpz_class, mpz
 vector<pair<mpz_class, mpz_class>> readEncryptedData(const string& filename) {
     ifstream file(filename, ios::binary);
     if (!file.is_open()) {
-        throw runtime_error("Не удалось открыть файл " + filename);
+        throw runtime_error("Не удалось открыть файл: " + filename);
     }
     vector<pair<mpz_class, mpz_class>> ciphertext;
     while (true) {
         size_t a_len;
-        file.read(reinterpret_cast<char*>(&a_len), sizeof(a_len));
-        if (file.eof()) break;
+        if (!file.read(reinterpret_cast<char*>(&a_len), sizeof(a_len))) {
+            if (file.eof()) break;
+            else {
+                throw runtime_error("Ошибка при чтении длины a: " + filename);
+            }
+        }
         vector<char> a_buf(a_len);
-        file.read(a_buf.data(), a_len);
+        if (!file.read(a_buf.data(), a_len)) {
+            throw runtime_error("Ошибка при чтении данных a: " + filename);
+        }
         string a_str(a_buf.begin(), a_buf.end());
         size_t b_len;
-        file.read(reinterpret_cast<char*>(&b_len), sizeof(b_len));
+        if (!file.read(reinterpret_cast<char*>(&b_len), sizeof(b_len))) {
+            throw runtime_error("Ошибка при чтении длины b: " + filename);
+        }
         vector<char> b_buf(b_len);
-        file.read(b_buf.data(), b_len);
+        if (!file.read(b_buf.data(), b_len)) {
+             throw runtime_error("Ошибка при чтении данных b: " + filename);
+        }
         string b_str(b_buf.begin(), b_buf.end());
         mpz_class a(a_str, 10);
         mpz_class b(b_str, 10);
@@ -302,17 +343,26 @@ vector<pair<mpz_class, mpz_class>> readEncryptedData(const string& filename) {
     return ciphertext;
 }
 int ElGamDec(bool useFile) {
+    setlocale(LC_ALL, "Russian");
+    std::locale::global(std::locale(""));
+    std::wcout.imbue(std::locale());
+    std::wcin.imbue(std::locale());
     string filePath;
     bool fileWasCreated = false;
+    vector<pair<mpz_class, mpz_class>> ciphertext;
     if (useFile) {
-        filePath = getFilePathWithChecks("Введите путь к файлу: ", fileWasCreated, true);
+        filePath = getFilePathWithChecks("Введите полный путь к файлу для расшифровки: ", fileWasCreated, true);
+        try {
+            ciphertext = readEncryptedData(filePath);
+        } catch (const exception& e) {
+            cerr << e.what() << endl;
+            return 1;
+        }
     } else {
-        cout << "Введите зашифрованный текст ((a,b) (a,b) и т.д.): ";
+        cout << "Введите зашифрованный текст((a,b) (a,b) и т.д.): ";
         string ciphertextStr;
         getline(cin, ciphertextStr);
-        vector<pair<mpz_class, mpz_class>> ciphertext;
-        string currentPair;
-        mpz_class a, b;
+        ciphertextStr.erase(remove_if(ciphertextStr.begin(), ciphertextStr.end(), ::isspace), ciphertextStr.end());
         size_t start = 0;
         size_t end;
         while ((start = ciphertextStr.find('(', start)) != string::npos) {
@@ -321,188 +371,171 @@ int ElGamDec(bool useFile) {
                 cerr << "Неверный формат зашифрованного текста." << endl;
                 return 1;
             }
-            currentPair = ciphertextStr.substr(start + 1, end - start - 1);
+            string currentPair = ciphertextStr.substr(start + 1, end - start - 1);
             size_t commaPos = currentPair.find(',');
             if (commaPos == string::npos) {
-                cerr << "Неверный формат зашифрованного текста." << endl;
+                cerr << "Неверный формат пары: отсутствует запятая." << endl;
                 return 1;
             }
             try {
-                a.set_str(currentPair.substr(0, commaPos), 10);
-                b.set_str(currentPair.substr(commaPos + 1), 10);
-                ciphertext.push_back({a, b});
-            }
-            catch (std::invalid_argument const& e) {
-                std::cerr << e.what() << std::endl;
+                string a_str = currentPair.substr(0, commaPos);
+                string b_str = currentPair.substr(commaPos + 1);
+                if (a_str.empty() || b_str.empty()) {
+                    cerr << "Ошибка: пустые значения в паре." << endl;
+                    return 1;
+                }
+                mpz_class a(a_str.c_str());
+                mpz_class b(b_str.c_str());
+                ciphertext.emplace_back(a, b);
+            } catch (...) {
+                cerr << "Ошибка преобразования строки в число. Убедитесь, что числа корректны." << endl;
                 return 1;
             }
             start = end + 1;
         }
         if (ciphertext.empty()) {
-            cerr << "Текст не найден." << endl;
+            cerr << "Не найдено ни одной пары зашифрованных данных." << endl;
             return 1;
         }
-        mpz_class x, p;
-        ifstream keyFile("keyElGamal.txt");
-        if (!keyFile.is_open()) {
-            cerr << "Не удалось открыть файл с ключом!" << endl;
-            return 1;
-        }
-        string line;
-        getline(keyFile, line);
-        size_t xPos = line.find("x = ");
-        if (xPos != string::npos) {
-            x.set_str(line.substr(xPos + 4), 10);
-        } else {
-            cerr << "Неверный размер ключей." << endl;
-            keyFile.close();
-            return 1;
-        }
-        getline(keyFile, line);
-        size_t pPos = line.find("p = ");
-        if (pPos != string::npos) {
-            p.set_str(line.substr(pPos + 4), 10);
-        } else {
-            cerr << "Неверный размер ключей." << endl;
-            keyFile.close();
-            return 1;
-        }
-        keyFile.close();
-        mpz_t p_mpz, x_mpz;
-        mpz_init(p_mpz);
-        mpz_init(x_mpz);
-        mpz_set(p_mpz, p.get_mpz_t());
-        mpz_set(x_mpz, x.get_mpz_t());
-        vector<unsigned char> decryptedBytes;
-        for (const auto& pair : ciphertext) {
-            decryptedBytes.push_back(decryptByte(pair, x_mpz, p_mpz));
-        }
-        mpz_clear(p_mpz);
-        mpz_clear(x_mpz);
-        cout << "Расшифрованные данные: ";
-        for (unsigned char byte : decryptedBytes) {
-            if (isprint(byte)) {
-                cout << byte;
-            } else {
-                cout << "\\x" << hex << setw(2) << setfill('0') << static_cast<int>(byte);
-            }
-        }
-        cout << endl;
-        return 0;
-    }
-    vector<pair<mpz_class, mpz_class>> ciphertext;
-    try {
-        ciphertext = readEncryptedData(filePath);
-    } catch (const exception& e) {
-        cerr << e.what() << endl;
-        return 1;
     }
     mpz_class x, p;
     ifstream keyFile("keyElGamal.txt");
     if (!keyFile.is_open()) {
-        cerr << "Не удалось открыть файл с ключом!" << endl;
+        cerr << "Не удалось открыть файл keyElGamal.txt" << endl;
         return 1;
     }
     string line;
-    getline(keyFile, line);
-    size_t xPos = line.find("x = ");
-    if (xPos != string::npos) {
-        x.set_str(line.substr(xPos + 4), 10);
-    } else {
-        cerr << "Неверный размер ключей." << endl;
-        keyFile.close();
-        return 1;
-    }
-    getline(keyFile, line);
-    size_t pPos = line.find("p = ");
-    if (pPos != string::npos) {
-        p.set_str(line.substr(pPos + 4), 10);
-    } else {
-        cerr << "Неверный размер ключей." << endl;
-        keyFile.close();
-        return 1;
+    bool x_found = false, p_found = false;
+    while (getline(keyFile, line)) {
+        if (line.find("x = ") == 0) {
+            x.set_str(line.substr(4), 10);
+            x_found = true;
+        } else if (line.find("p = ") == 0) {
+            p.set_str(line.substr(4), 10);
+            p_found = true;
+        }
     }
     keyFile.close();
+    if (!x_found || !p_found) {
+        cerr << "Не удалось загрузить ключи x или p из файла." << endl;
+        return 1;
+    }
     mpz_t p_mpz, x_mpz;
     mpz_init(p_mpz);
     mpz_init(x_mpz);
     mpz_set(p_mpz, p.get_mpz_t());
     mpz_set(x_mpz, x.get_mpz_t());
-    vector<unsigned char> decryptedBytes;
+    vector<int> decryptedCodepoints; 
     for (const auto& pair : ciphertext) {
-        decryptedBytes.push_back(decryptByte(pair, x_mpz, p_mpz));
+        int decryptedCodepoint = decryptCodepoint(pair, x_mpz, p_mpz);
+        if (decryptedCodepoint != -1) { 
+            decryptedCodepoints.push_back(decryptedCodepoint);
+        } else {
+            cerr << "Ошибка при расшифровке кодовой точки." << endl;
+            mpz_clear(p_mpz);
+            mpz_clear(x_mpz);
+            return 1; 
+        }
     }
     mpz_clear(p_mpz);
     mpz_clear(x_mpz);
-    try {
-        writeBinaryFile(filePath, decryptedBytes);
-        cout << "Файл успешно расшифрован и перезаписан." << endl;
-    } catch (const exception& e) {
-        cerr << e.what() << endl;
-        return 1;
+    if (useFile) {
+        try {
+             string outputFilename = filePath;
+            if (outputFilename.rfind(".enc") == outputFilename.length() - 4) {
+                outputFilename = outputFilename.substr(0, outputFilename.length() - 4);
+            } else {
+                 outputFilename += ".dec";
+            }
+            string decryptedText = utf8_encode(decryptedCodepoints);
+            vector<unsigned char> decryptedData(decryptedText.begin(), decryptedText.end());
+            writeBinaryFile(outputFilename, decryptedData);
+            cout << "Файл успешно расшифрован и сохранен как: " << outputFilename << endl;
+        } catch (const exception& e) {
+            cerr << e.what() << endl;
+            return 1;
+        }
+    } else {
+       try {
+            std::string decryptedText = utf8_encode(decryptedCodepoints);
+            cout << "Расшифрованный текст: " << decryptedText << endl;
+        } catch (const exception& e) {
+            cerr << e.what() << endl;
+            cout << "Расшифрованные данные: ";
+                for (int codepoint : decryptedCodepoints) {
+                     if (codepoint >= 0 && codepoint <= 255 && isprint(static_cast<unsigned char>(codepoint))) {
+                        cout << static_cast<unsigned char>(codepoint);
+                    } else {
+                        cout << "\\x" << hex << setw(2) << setfill('0') << codepoint;
+                    }
+                }
+            cout << endl;
+        }
     }
     return 0;
 }
 int ElGamEnc(bool useFile) {
+    setRussianLocale();
     string myText;
     string filePath;
     bool fileWasCreated = false;
+    vector<int> inputCodepoints;
     if (useFile) {
-        filePath = getFilePathWithChecks("Введите путь к файлу: ", fileWasCreated);
+        filePath = getFilePathWithChecks("Введите полный путь к файлу для шифрования: ", fileWasCreated);
+        try {
+            vector<unsigned char> inputData = readBinaryFile(filePath);
+            string utf8Text(inputData.begin(), inputData.end());
+            inputCodepoints = getUnicodeCodepoints(utf8Text);
+        } catch (const exception& e) {
+            cerr << e.what() << endl;
+            return 1;
+        }
     } else {
-        myText = Terminal();
+        string inputText = Terminal();
+        inputCodepoints = getUnicodeCodepoints(inputText);
     }
-    mpz_t p, g, x, y;
+        mpz_t p, g, x, y;
     mpz_init(p);
     mpz_init(g);
     mpz_init(x);
     mpz_init(y);
-    mpz_class prime_mpz = generatePrime(16);
+    mpz_class prime_mpz = generatePrime(8); 
     mpz_set(p, prime_mpz.get_mpz_t());
     findPrimitiveRoot(g, p);
     mpz_t p_minus_1;
     mpz_init(p_minus_1);
     mpz_sub_ui(p_minus_1, p, 1);
     RandomNumbers_gmp(x, mpz_class(2).get_mpz_t(), p_minus_1);
+    Bin(y, g, x, p);
     ofstream keyFile("keyElGamal.txt");
     if (!keyFile.is_open()) {
-        cerr << "Не удалось создать файл для сохранения ключа!" << endl;
+        cerr << "Не удалось создать файл keyElGamal.txt для хранения ключей." << endl;
         return 1;
     }
     keyFile << "x = " << mpz_class(x).get_str() << endl;
     keyFile << "p = " << mpz_class(p).get_str() << endl;
-    keyFile.close();
-    cout << "Ключи сохранены в keyElGamal.txt" << endl;
-    Bin(y, g, x, p);
+    keyFile << "g = " << mpz_class(g).get_str() << endl;
+    keyFile << "k = ";  
     vector<pair<mpz_class, mpz_class>> ciphertext;
+    for (int codepoint : inputCodepoints) {
+        ciphertext.push_back(encryptCodepoint(codepoint, g, y, p, keyFile));
+    }
     if (useFile) {
-        vector<unsigned char> fileData;
         try {
-            fileData = readBinaryFile(filePath);
-        } catch (const exception& e) {
-            cerr << e.what() << endl;
-            return 1;
-        }
-        for (unsigned char byte : fileData) {
-            ciphertext.push_back(encryptByte(byte, g, y, p));
-        }
-        try {
-            writeEncryptedData(filePath, ciphertext);
-            cout << "Файл успешно зашифрован и перезаписан." << endl;
+            writeEncryptedData(filePath + ".enc", ciphertext); 
+            cout << "Файл успешно зашифрован и сохранен как: " << filePath + ".enc" << endl;
         } catch (const exception& e) {
             cerr << e.what() << endl;
             return 1;
         }
     } else {
-        for (unsigned char character : myText) {
-            ciphertext.push_back(encryptByte(character, g, y, p));
-        }
         cout << "Зашифрованный текст:" << endl;
         for (const auto& pair : ciphertext) {
             cout << "(" << pair.first.get_str() << "," << pair.second.get_str() << ") ";
         }
         cout << endl;
     }
+    keyFile.close();
     mpz_clear(p);
     mpz_clear(g);
     mpz_clear(x);
@@ -548,3 +581,18 @@ int ElGamal_gmp() {
         return ElGamDec(useFile);
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
