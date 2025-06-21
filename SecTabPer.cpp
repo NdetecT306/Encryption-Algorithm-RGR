@@ -213,13 +213,13 @@ void encFile() {
     try {
         ifstream file(filename, ios::binary);
         if (!file.is_open()) {
-            throw runtime_error("Файл не существует");
+            throw runtime_error("Файл не существует.");
         }
         file.seekg(0, ios::end);
         size_t fileSize = file.tellg();
         file.seekg(0, ios::beg);
         if (fileSize == 0) {
-            throw runtime_error("Файл пуст");
+            throw runtime_error("Текст не найден.");
         }
         vector<unsigned char> data(fileSize);
         file.read(reinterpret_cast<char*>(data.data()), fileSize);
@@ -248,13 +248,13 @@ void decFile() {
     try {
         ifstream file(filename, ios::binary);
         if (!file.is_open()) {
-            throw runtime_error("Файл не существует");
+            throw runtime_error("Файл не существует.");
         }
         file.seekg(0, ios::end);
         size_t fileSize = file.tellg();
         file.seekg(0, ios::beg);
         if (fileSize == 0) {
-            throw runtime_error("Файл пуст");
+            throw runtime_error("Текст не найден.");
         }
         vector<unsigned char> ciphertext(fileSize);
         file.read(reinterpret_cast<char*>(ciphertext.data()), fileSize);
