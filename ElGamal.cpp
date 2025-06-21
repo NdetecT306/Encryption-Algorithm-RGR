@@ -42,7 +42,7 @@ string getFilePathWithChecks(const string& prompt, bool& wasCreated, bool forDec
                 }
                 try {
                     fs::create_directories(dir);
-                    cout << "Директория успешно создана: " << dir.string() << endl;
+                    cout << "Директория успешно создана." << endl;
                 } catch (const fs::filesystem_error& e) {
                     cerr << "Ошибка при создании директории: " << e.what() << endl;
                     continue;
@@ -64,7 +64,7 @@ string getFilePathWithChecks(const string& prompt, bool& wasCreated, bool forDec
                 file << fileContent;
                 file.close();
                 wasCreated = true;
-                cout << "Файл успешно создан: " << filePath << endl;
+                cout << "Файл успешно создан." << endl;
                 return filePath;
             } else {
                 cerr << "Не удалось создать файл." << endl;
