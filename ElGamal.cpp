@@ -244,27 +244,27 @@ unsigned char decryptByte(const pair<mpz_class, mpz_class>& ciphertext, mpz_t x,
 vector<unsigned char> readBinaryFile(const string& filename) {
     ifstream file(filename, ios::binary | ios::ate);
     if (!file.is_open()) {
-        throw runtime_error("Не удалось открыть файл: " + filename);
+        throw runtime_error("Не удалось открыть файл " + filename);
     }
     streamsize size = file.tellg();
     file.seekg(0, ios::beg);
     vector<unsigned char> buffer(size);
     if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-        throw runtime_error("Не удалось прочитать файл: " + filename);
+        throw runtime_error("Не удалось прочитать файл " + filename);
     }
     return buffer;
 }
 void writeBinaryFile(const string& filename, const vector<unsigned char>& data) {
     ofstream file(filename, ios::binary);
     if (!file.is_open()) {
-        throw runtime_error("Не удалось открыть файл для записи: " + filename);
+        throw runtime_error("Не удалось открыть файл для записи " + filename);
     }
     file.write(reinterpret_cast<const char*>(data.data()), data.size());
 }
 void writeEncryptedData(const string& filename, const vector<pair<mpz_class, mpz_class>>& ciphertext) {
     ofstream file(filename, ios::binary);
     if (!file.is_open()) {
-        throw runtime_error("Не удалось открыть файл для записи: " + filename);
+        throw runtime_error("Не удалось открыть файл для записи " + filename);
     }
     for (const auto& pair : ciphertext) {
         string a_str = pair.first.get_str();
@@ -280,7 +280,7 @@ void writeEncryptedData(const string& filename, const vector<pair<mpz_class, mpz
 vector<pair<mpz_class, mpz_class>> readEncryptedData(const string& filename) {
     ifstream file(filename, ios::binary);
     if (!file.is_open()) {
-        throw runtime_error("Не удалось открыть файл: " + filename);
+        throw runtime_error("Не удалось открыть файл " + filename);
     }
     vector<pair<mpz_class, mpz_class>> ciphertext;
     while (true) {
@@ -305,9 +305,9 @@ int ElGamDec(bool useFile) {
     string filePath;
     bool fileWasCreated = false;
     if (useFile) {
-        filePath = getFilePathWithChecks("Введите полный путь к файлу: ", fileWasCreated, true);
+        filePath = getFilePathWithChecks("Введите путь к файлу: ", fileWasCreated, true);
     } else {
-        cout << "Введите зашифрованный текст в формате ((a,b) (a,b) и т.д.): ";
+        cout << "Введите зашифрованный текст ((a,b) (a,b) и т.д.): ";
         string ciphertextStr;
         getline(cin, ciphertextStr);
         vector<pair<mpz_class, mpz_class>> ciphertext;
@@ -339,7 +339,7 @@ int ElGamDec(bool useFile) {
             start = end + 1;
         }
         if (ciphertext.empty()) {
-            cerr << "Не найдено ни одной пары зашифрованных данных." << endl;
+            cerr << "Текст не найден." << endl;
             return 1;
         }
         mpz_class x, p;
@@ -354,7 +354,7 @@ int ElGamDec(bool useFile) {
         if (xPos != string::npos) {
             x.set_str(line.substr(xPos + 4), 10);
         } else {
-            cerr << "Неверный формат файла ключей (x)." << endl;
+            cerr << "Неверный размер ключей." << endl;
             keyFile.close();
             return 1;
         }
@@ -363,7 +363,7 @@ int ElGamDec(bool useFile) {
         if (pPos != string::npos) {
             p.set_str(line.substr(pPos + 4), 10);
         } else {
-            cerr << "Неверный формат файла ключей (p)." << endl;
+            cerr << "Неверный размер ключей." << endl;
             keyFile.close();
             return 1;
         }
@@ -409,7 +409,7 @@ int ElGamDec(bool useFile) {
     if (xPos != string::npos) {
         x.set_str(line.substr(xPos + 4), 10);
     } else {
-        cerr << "Неверный формат файла ключей (x)." << endl;
+        cerr << "Неверный размер ключей." << endl;
         keyFile.close();
         return 1;
     }
@@ -418,7 +418,7 @@ int ElGamDec(bool useFile) {
     if (pPos != string::npos) {
         p.set_str(line.substr(pPos + 4), 10);
     } else {
-        cerr << "Неверный формат файла ключей (p)." << endl;
+        cerr << "Неверный размер ключей." << endl;
         keyFile.close();
         return 1;
     }
@@ -436,7 +436,7 @@ int ElGamDec(bool useFile) {
     mpz_clear(x_mpz);
     try {
         writeBinaryFile(filePath, decryptedBytes);
-        cout << "Файл успешно расшифрован и перезаписан: " << filePath << endl;
+        cout << "Файл успешно расшифрован и перезаписан." << endl;
     } catch (const exception& e) {
         cerr << e.what() << endl;
         return 1;
@@ -448,7 +448,7 @@ int ElGamEnc(bool useFile) {
     string filePath;
     bool fileWasCreated = false;
     if (useFile) {
-        filePath = getFilePathWithChecks("Введите полный путь к файлу: ", fileWasCreated);
+        filePath = getFilePathWithChecks("Введите путь к файлу: ", fileWasCreated);
     } else {
         myText = Terminal();
     }
@@ -488,7 +488,7 @@ int ElGamEnc(bool useFile) {
         }
         try {
             writeEncryptedData(filePath, ciphertext);
-            cout << "Файл успешно зашифрован и перезаписан: " << filePath << endl;
+            cout << "Файл успешно зашифрован и перезаписан." << endl;
         } catch (const exception& e) {
             cerr << e.what() << endl;
             return 1;
