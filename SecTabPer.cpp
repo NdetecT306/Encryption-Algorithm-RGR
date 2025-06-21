@@ -5,18 +5,10 @@ string wstringToString(const wstring& wstr) {
     wstring_convert<codecvt_utf8<wchar_t>> converter;
     return converter.to_bytes(wstr);
 }
+
 wstring stringToWstring(const string& str) {
     wstring_convert<codecvt_utf8<wchar_t>> converter;
     return converter.from_bytes(str);
-}
-bool isValidUTF8(const vector<unsigned char>& bytes) {
-    try {
-        wstring_convert<codecvt_utf8<wchar_t>> converter;
-        converter.from_bytes(reinterpret_cast<const char*>(bytes.data()), reinterpret_cast<const char*>(bytes.data() + bytes.size()));
-        return true;
-    } catch (const std::range_error&) {
-        return false;
-    }
 }
 vector<unsigned char> genKey(int n) {
     vector<unsigned char> key(n);
@@ -84,86 +76,162 @@ bool isValidKey(const vector<unsigned char>& key, int N) {
     vector<bool> seen(N + 1, false);  
     for (unsigned char val : key) {
         if (val < 1 || val > N || seen[val]) {
-            return false; 
+            return false;  
         }
         seen[val] = true;
     }
     return true;
 }
-wstring SecTabEnc(const wstring& wstr, const vector<unsigned char>& key1, const vector<unsigned char>& key2) {
-    int len = wstr.size();
+wstring SecTabEncConsole(const wstring& wstr, const vector<unsigned char>& key1, const vector<unsigned char>& key2) {
     int N = key1.size();
     if (!isValidKey(key1, N) || !isValidKey(key2, N)) {
         wcout << L"Некорректные ключи!" << endl;
-        return L""; 
+        return L"";
     }
     wstring paddedStr = wstr;
     paddedStr.resize(N * N, L' '); 
-    vector<vector<wchar_t>> originalMatrix(N, vector<wchar_t>(N));
+    vector<vector<wchar_t>> matrix(N, vector<wchar_t>(N));
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
-            originalMatrix[i][j] = paddedStr[i * N + j];
+            matrix[i][j] = paddedStr[i * N + j];
         }
     }
-    wstring permutedData;
+    vector<vector<wchar_t>> encryptedMatrix(N, vector<wchar_t>(N));
     for (int i = 0; i < N; ++i) {
-        for (auto e : key1) {
-            permutedData += originalMatrix[i][e - 1];
+        int row = key1[i] - 1;
+        for (int j = 0; j < N; ++j) {
+            encryptedMatrix[i][j] = matrix[row][j];
+        }
+    }
+    vector<vector<wchar_t>> finalMatrix(N, vector<wchar_t>(N));
+    for (int j = 0; j < N; ++j) {
+        int col = key2[j] - 1;
+        for (int i = 0; i < N; ++i) {
+            finalMatrix[i][j] = encryptedMatrix[i][col];
         }
     }
     wstring ciphertext;
-    vector<vector<wchar_t>> intermediateMatrix(N, vector<wchar_t>(N));
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
-            intermediateMatrix[i][j] = permutedData[i * N + j];
-        }
-    }
-    for (auto e : key2) {
-        for (int j = 0; j < N; ++j) {
-            ciphertext += intermediateMatrix[e - 1][j];
+            ciphertext += finalMatrix[i][j];
         }
     }
     return ciphertext;
 }
-wstring SecTabDec(const wstring& ciphertext, const vector<unsigned char>& key1, const vector<unsigned char>& key2, int originalSize = 0) {
+wstring SecTabDecConsole(const wstring& ciphertext, const vector<unsigned char>& key1, const vector<unsigned char>& key2) {
     int N = key1.size();
     if (!isValidKey(key1, N) || !isValidKey(key2, N)) {
         wcout << L"Некорректные ключи!" << endl;
-        return L""; 
-    }
-    if (ciphertext.size() != pow(N, 2)) {
-        wcout << L"Неверный размер данных!" << endl;
         return L"";
     }
-    vector<vector<wchar_t>> matrix2(N, vector<wchar_t>(N));
-    int ind = 0;
-    for (auto e : key2) {
-        for (int j = 0; j < N; ++j) {
-            matrix2[e - 1][j] = ciphertext[ind++];
-        }
-    }
-    wstring temp2;
+    vector<vector<wchar_t>> matrix(N, vector<wchar_t>(N));
+    wstring paddedCipher = ciphertext;
+    paddedCipher.resize(N * N, L' ');
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
-            temp2 += matrix2[i][j];
+            matrix[i][j] = paddedCipher[i * N + j];
         }
     }
-    vector<vector<wchar_t>> matrix1(N, vector<wchar_t>(N));
-    ind = 0;
+    vector<vector<wchar_t>> decryptedMatrix(N, vector<wchar_t>(N));
+    for (int j = 0; j < N; ++j) {
+        int col = key2[j] - 1;
+        for (int i = 0; i < N; ++i) {
+            decryptedMatrix[i][col] = matrix[i][j];
+        }
+    }
+    vector<vector<wchar_t>> finalMatrix(N, vector<wchar_t>(N));
     for (int i = 0; i < N; ++i) {
-        for (auto e : key1) {
-            matrix1[i][e - 1] = temp2[ind++];
+        int row = key1[i] - 1;
+        for (int j = 0; j < N; ++j) {
+            finalMatrix[row][j] = decryptedMatrix[i][j];
         }
     }
     wstring plaintext;
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
-            plaintext += matrix1[i][j];
+            plaintext += finalMatrix[i][j];
         }
     }
-    if (originalSize > 0 && plaintext.size() > originalSize) {
-        plaintext.resize(originalSize);
+    return plaintext;
+}
+vector<unsigned char> SecTabEncFile(const vector<unsigned char>& vec, const vector<unsigned char>& key1, const vector<unsigned char>& key2) {
+    int N = key1.size();
+    if (!isValidKey(key1, N) || !isValidKey(key2, N)) {
+        wcout << L"Некорректные ключи!" << endl;
+        return vector<unsigned char>();
     }
+    vector<unsigned char> paddedVec = vec;
+    paddedVec.resize(pow(N,2), 0x00);
+    vector<vector<unsigned char>> matrix(N, vector<unsigned char>(N));
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            matrix[i][j] = paddedVec[i * N + j];
+        }
+    }
+    vector<vector<unsigned char>> encryptedMatrix(N, vector<unsigned char>(N));
+    for (int i = 0; i < N; ++i) {
+        int row = key1[i] - 1;
+        for (int j = 0; j < N; ++j) {
+            encryptedMatrix[i][j] = matrix[row][j];
+        }
+    }
+    vector<vector<unsigned char>> finalMatrix(N, vector<unsigned char>(N));
+    for (int j = 0; j < N; ++j) {
+        int col = key2[j] - 1;
+        for (int i = 0; i < N; ++i) {
+            finalMatrix[i][j] = encryptedMatrix[i][col];
+        }
+    }
+    vector<unsigned char> ciphertext;
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            ciphertext.push_back(finalMatrix[i][j]);
+        }
+    }
+    return ciphertext;
+}
+vector<unsigned char> SecTabDecFile(const vector<unsigned char>& ciphertext, const vector<unsigned char>& key1, const vector<unsigned char>& key2, int originalSize) {
+    int N = key1.size();
+    if (!isValidKey(key1, N) || !isValidKey(key2, N)) {
+        wcout << L"Некорректные ключи!" << endl;
+        return vector<unsigned char>();
+    }
+    vector<unsigned char> paddedCipher = ciphertext;
+    paddedCipher.resize(N * N, 0x00);
+    vector<vector<unsigned char>> matrix(N, vector<unsigned char>(N));
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            matrix[i][j] = paddedCipher[i * N + j];
+        }
+    }
+    vector<vector<unsigned char>> decryptedMatrix(N, vector<unsigned char>(N));
+    for (int j = 0; j < N; ++j) {
+        int col = key2[j] - 1;
+        for (int i = 0; i < N; ++i) {
+            decryptedMatrix[i][col] = matrix[i][j];
+        }
+    }
+    vector<vector<unsigned char>> finalMatrix(N, vector<unsigned char>(N));
+    for (int i = 0; i < N; ++i) {
+        int row = key1[i] - 1;
+        for (int j = 0; j < N; ++j) {
+            finalMatrix[row][j] = decryptedMatrix[i][j];
+        }
+    }
+    vector<unsigned char> plaintext;
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            plaintext.push_back(finalMatrix[i][j]);
+        }
+    }
+    size_t paddingStartIndex = plaintext.size();
+    for (size_t i = 0; i < plaintext.size(); ++i) {
+        if (plaintext[i] == 0x00) {
+            paddingStartIndex = i;
+            break;
+        }
+    }
+    plaintext.resize(paddingStartIndex);
     return plaintext;
 }
 void saveKeysToFile(const vector<unsigned char>& key1, const vector<unsigned char>& key2) {
@@ -183,24 +251,24 @@ void saveKeysToFile(const vector<unsigned char>& key1, const vector<unsigned cha
     }
     wcout << L"Ключи сохранены в " << stringToWstring(KEY_FILENAME) << endl;
 }
-vector<vector<unsigned char>> getKeys(int tableSize) {
+vector<vector<unsigned char>> getKeys(int N) {
     const int KEY1_INDEX = 0;
     const int KEY2_INDEX = 1;
     vector<vector<unsigned char>> keys(2);
     keys[0] = readKeyFromFile(KEY_FILENAME, KEY1_INDEX);
     keys[1] = readKeyFromFile(KEY_FILENAME, KEY2_INDEX);
-    if (keys[0].size() != tableSize || keys[1].size() != tableSize) {
+    if (keys[0].size() != N || keys[1].size() != N) {
         wcout << L"Ключи не найдены или неверного размера. Введите новые ключи:" << endl;
         wcout << L"Первый ключ:" << endl;
-        keys[0] = readKey(tableSize);
+        keys[0] = readKey(N);
         wcout << L"Второй ключ:" << endl;
-        keys[1] = readKey(tableSize);
+        keys[1] = readKey(N);
         saveKeysToFile(keys[0], keys[1]);
     }
     return keys;
 }
-int calculateTableSize(size_t dataSize) {
-    int tableSize = ceil(sqrt(dataSize));
+int calculateTableSize(size_t N) {
+    int tableSize = ceil(sqrt(N));
     return tableSize;
 }
 void encConsole() {
@@ -214,9 +282,9 @@ void encConsole() {
     vector<unsigned char> key1 = genKey(N);
     vector<unsigned char> key2 = genKey(N);
     saveKeysToFile(key1, key2);
-    wstring ciphertext = SecTabEnc(input, key1, key2);
+    wstring ciphertext = SecTabEncConsole(input, key1, key2);
     if (ciphertext.empty()) {
-        wcout << L"Ошибка шифрования. Возможно, неверные ключи." << endl;
+        wcout << L"Ошибка шифрования." << endl;
         return;
     }
     wcout << L"Зашифрованный текст: " << ciphertext << endl;
@@ -228,94 +296,18 @@ void decConsole() {
     wstring input;
     wcout << L"Введите зашифрованный текст: ";
     getline(wcin, input);
-    int tableSize = calculateTableSize(input.size());
-    auto keys = getKeys(tableSize);
-    if (keys[0].size() != tableSize || keys[1].size() != tableSize) {
-        wcout << L"Ошибка: неверный размер ключей! Дешифрование невозможно." << endl;
+    int N = calculateTableSize(input.size());
+    auto keys = getKeys(N);
+    if (keys[0].size() != N || keys[1].size() != N) {
+        wcout << L"Неверный размер ключей!" << endl;
         return;
     }
-    wstring plaintext = SecTabDec(input, keys[0], keys[1]);
+    wstring plaintext = SecTabDecConsole(input, keys[0], keys[1]);
     if (plaintext.empty()) {
-        wcout << L"Ошибка при расшифровке. Возможно, неверные ключи или поврежденный шифротекст." << endl;
+        wcout << L"Ошибка при расшифровке." << endl;
         return;
     }
     wcout << L"Расшифрованный текст: " << plaintext << endl;
-}
-vector<unsigned char> SecTabEncFile(const vector<unsigned char>& vec, const vector<unsigned char>& key1, const vector<unsigned char>& key2) {
-    int len = vec.size();
-    int N = key1.size();
-    if (!isValidKey(key1, N) || !isValidKey(key2, N)) {
-        wcout << L"Некорректные ключи!" << endl;
-        return vector<unsigned char>();
-    }
-    vector<unsigned char> paddedVec = vec;
-    paddedVec.resize(N * N, 0x00); 
-    vector<vector<unsigned char>> originalMatrix(N, vector<unsigned char>(N));
-    for (int i = 0; i < N; ++i) {
-        for (int j = 0; i < N; ++j) {
-            originalMatrix[i][j] = paddedVec[i * N + j];
-        }
-    }
-    vector<unsigned char> permutedData;
-    for (int i = 0; i < N; ++i) {
-        for (auto e : key1) {
-            permutedData.push_back(originalMatrix[i][e - 1]);
-        }
-    }
-    vector<vector<unsigned char>> intermediateMatrix(N, vector<unsigned char>(N));
-    for (int i = 0; i < N; ++i) {
-        for (int j = 0; i < N; ++j) {
-            intermediateMatrix[i][j] = permutedData[i * N + j];
-        }
-    }
-    vector<unsigned char> ciphertext;
-    for (auto e : key2) {
-        for (int j = 0; j < N; ++j) {
-            ciphertext.push_back(intermediateMatrix[e - 1][j]);
-        }
-    }
-    return ciphertext;
-}
-vector<unsigned char> SecTabDecFile(const vector<unsigned char>& ciphertext, const vector<unsigned char>& key1, const vector<unsigned char>& key2, int originalSize = 0) {
-    int N = key1.size();
-    if (!isValidKey(key1, N) || !isValidKey(key2, N)) {
-        wcout << L"Некорректные ключи!" << endl;
-        return vector<unsigned char>();
-    }
-    if (ciphertext.size() != pow(N, 2)) {
-        wcout << L"Неверный размер данных!" << endl;
-        return vector<unsigned char>();
-    }
-    vector<vector<unsigned char>> matrix2(N, vector<unsigned char>(N));
-    int ind = 0;
-    for (auto e : key2) {
-        for (int j = 0; j < N; ++j) {
-            matrix2[e - 1][j] = ciphertext[ind++];
-        }
-    }
-    vector<unsigned char> temp2;
-    for (int i = 0; i < N; ++i) {
-        for (int j = 0; j < N; ++j) {
-            temp2.push_back(matrix2[i][j]);
-        }
-    }
-    vector<vector<unsigned char>> matrix1(N, vector<unsigned char>(N));
-    ind = 0;
-    for (int i = 0; i < N; ++i) {
-        for (auto e : key1) {
-            matrix1[i][e - 1] = temp2[ind++];
-        }
-    }
-    vector<unsigned char> plaintext;
-    for (int i = 0; i < N; ++i) {
-        for (int j = 0; j < N; ++j) {
-            plaintext.push_back(matrix1[i][j]);
-        }
-    }
-    if (originalSize > 0 && plaintext.size() > originalSize) {
-        plaintext.resize(originalSize);
-    }
-    return plaintext;
 }
 void encFile() {
     setlocale(LC_ALL, "");
@@ -325,10 +317,6 @@ void encFile() {
     wcout << L"Введите имя файла для шифрования: ";
     getline(wcin, wfilename);
     string filename = wstringToString(wfilename);
-    wstring woutputFilename;
-    wcout << L"Введите имя выходного файла для зашифрованного текста: ";
-    getline(wcin, woutputFilename);
-    string outputFilename = wstringToString(woutputFilename);
     try {
         ifstream file(filename, ios::binary);
         if (!file.is_open()) {
@@ -343,24 +331,19 @@ void encFile() {
         vector<unsigned char> data(fileSize);
         file.read(reinterpret_cast<char*>(data.data()), fileSize);
         file.close();
+
         int tableSize = calculateTableSize(data.size());
         vector<unsigned char> key1 = genKey(tableSize);
         vector<unsigned char> key2 = genKey(tableSize);
         saveKeysToFile(key1, key2);
         vector<unsigned char> ciphertext = SecTabEncFile(data, key1, key2);
         if (ciphertext.empty()) {
-            throw runtime_error("Ошибка при шифровании. Некорректные ключи.");
+            throw runtime_error("Некорректные ключи.");
         }
-        ofstream outFile(outputFilename, ios::binary);
-        if (!outFile.is_open()) {
-            throw runtime_error("Не удалось открыть выходной файл для записи.");
-        }
-        outFile.write(reinterpret_cast<const char*>(&fileSize), sizeof(fileSize));
+        ofstream outFile(filename, ios::binary | ios::trunc);
         outFile.write(reinterpret_cast<const char*>(ciphertext.data()), ciphertext.size());
         outFile.close();
-        wcout << L"Файл успешно зашифрован. Зашифрованный текст сохранен в " << stringToWstring(outputFilename) << endl;
-        wcout << L"Ключи сохранены в " << stringToWstring(KEY_FILENAME) << endl;
-
+        wcout << L"Файл успешно зашифрован и перезаписан." << endl;
     } catch (const exception& e) {
         wcout << stringToWstring(e.what()) << endl;
     }
@@ -373,110 +356,80 @@ void decFile() {
     wcout << L"Введите имя файла для расшифровки: ";
     getline(wcin, wfilename);
     string filename = wstringToString(wfilename);
-    wstring woutputFilename;
-    wcout << L"Введите имя выходного файла для расшифрованного текста: ";
-    getline(wcin, woutputFilename);
-    string outputFilename = wstringToString(woutputFilename);
     try {
         ifstream file(filename, ios::binary);
         if (!file.is_open()) {
             throw runtime_error("Файл не существует");
         }
-        size_t fileSizeEncrypted = file.tellg();
         file.seekg(0, ios::end);
-        fileSizeEncrypted = file.tellg();
+        size_t fileSize = file.tellg();
         file.seekg(0, ios::beg);
-        if (fileSizeEncrypted < sizeof(size_t)) {
-            throw runtime_error("Файл слишком мал и не содержит размер исходного файла.");
+        if (fileSize == 0) {
+            throw runtime_error("Файл пуст");
         }
-        size_t originalSize;
-        file.read(reinterpret_cast<char*>(&originalSize), sizeof(originalSize));
-        if (file.fail()) {
-             throw runtime_error("Ошибка при чтении размера исходного файла.");
-        }
-        vector<unsigned char> ciphertext(fileSizeEncrypted - sizeof(size_t));
-        file.read(reinterpret_cast<char*>(ciphertext.data()), fileSizeEncrypted - sizeof(size_t));
+        vector<unsigned char> ciphertext(fileSize);
+        file.read(reinterpret_cast<char*>(ciphertext.data()), fileSize);
         file.close();
         int tableSize = calculateTableSize(ciphertext.size());
         vector<vector<unsigned char>> keys = getKeys(tableSize);
         if (keys[0].size() != tableSize || keys[1].size() != tableSize) {
             throw runtime_error("Неверный размер ключей");
         }
-        vector<unsigned char> plaintext = SecTabDecFile(ciphertext, keys[0], keys[1], originalSize);
+        vector<unsigned char> plaintext = SecTabDecFile(ciphertext, keys[0], keys[1], fileSize);
         if(plaintext.empty())
         {
              throw runtime_error("Ошибка при расшифровке. Возможно, использованы неверные ключи.");
         }
-        ofstream outFile(outputFilename, ios::binary);
-        if (!outFile.is_open()) {
-            throw runtime_error("Не удалось открыть выходной файл для записи.");
-        }
+        ofstream outFile(filename, ios::binary | ios::trunc);
         outFile.write(reinterpret_cast<const char*>(plaintext.data()), plaintext.size());
         outFile.close();
-        wcout << L"Файл успешно расшифрован. Расшифрованный текст сохранен в " << stringToWstring(outputFilename) << endl;
-
+        wcout << L"Файл успешно расшифрован и перезаписан." << endl;
     } catch (const exception& e) {
         wcout << stringToWstring(e.what()) << endl;
     }
 }
-enum class Mode {
-    Encrypt = 1,
-    Decrypt = 2
-};
-enum class Method {
-    Console = 1,
-    File = 2
-};
 int SecTab() {
     setlocale(LC_ALL, "");
     wcout.imbue(locale(""));
     wcin.imbue(locale(""));
     try {
-        Mode mode;
-        Method method;
+        int mode = 0, method = 0;
         bool validInput = false;
         while (!validInput) {
             try {
-                wcout << L"1 - Шифровка, 2 - Расшифровка: ";
-                int modeInput;
-                if (!(wcin >> modeInput) || (modeInput != static_cast<int>(Mode::Encrypt) && modeInput != static_cast<int>(Mode::Decrypt))) {
-                    wcin.clear();
-                    wcin.ignore(numeric_limits<streamsize>::max(), '\n');
-                    this_thread::sleep_for(chrono::milliseconds(100));
+                cout << "1 - Шифровка, 2 - Расшифровка: ";
+                if (!(cin >> mode) || (mode != 1 && mode != 2)) {
+                    cin.clear(); 
+                    cin.ignore(numeric_limits<streamsize>::max(), '\n'); 
                     throw runtime_error("Допустимые операции обозначены ЦИФРАМИ 1 или 2.");
                 }
-                mode = static_cast<Mode>(modeInput);
                 validInput = true;
             } catch (const exception& e) {
-                wcerr << stringToWstring(e.what()) << endl;
+                cerr << e.what() << endl;
             }
         }
-        validInput = false;
+        validInput = false; 
         while (!validInput) {
             try {
-                wcout << L"1 - Использовать терминал, 2 - Использовать файл: ";
-                int methodInput;
-                if (!(wcin >> methodInput) || (methodInput != static_cast<int>(Method::Console) && methodInput != static_cast<int>(Method::File))) {
-                    wcin.clear();
-                    wcin.ignore(numeric_limits<streamsize>::max(), '\n');
-                    this_thread::sleep_for(chrono::milliseconds(100));
+                cout << "1 - Использовать терминал, 2 - Использовать файл: ";
+                if (!(cin >> method) || (method != 1 && method != 2)) {
+                    cin.clear();
+                    cin.ignore(numeric_limits<streamsize>::max(), '\n');
                     throw runtime_error("Допустимые операции обозначены ЦИФРАМИ 1 или 2.");
                 }
-                method = static_cast<Method>(methodInput);
                 validInput = true;
             } catch (const exception& e) {
-                wcerr << stringToWstring(e.what()) << endl;
+                cerr << e.what() << endl;
             }
         }
-        wcin.ignore(); 
-        if (method == Method::Console) {
-            if (mode == Mode::Encrypt) {
+        if (method == 1) {
+            if (mode == 1) {
                 encConsole();
             } else {
                 decConsole();
             }
         } else {
-            if (mode == Mode::Encrypt) {
+            if (mode == 1) {
                 encFile();
             } else {
                 decFile();
@@ -484,7 +437,7 @@ int SecTab() {
         }
         return 0;
     } catch (const exception& e) {
-        wcerr << stringToWstring(e.what()) << endl;
+        cerr << e.what() << endl;
         return 1;
     }
 }
