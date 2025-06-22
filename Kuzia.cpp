@@ -335,7 +335,7 @@ void KuzFileEnc(const string& filePath) {
 }
 void KuzFileDec(const string& filePath) {
     if (!fs::exists(filePath)) {
-        cerr << "Ошибка: Файл " << filePath << " не существует." << endl;
+        cerr << "Файл не существует." << endl;
         return;
     }
     vector<unsigned char> key;
@@ -356,13 +356,13 @@ void KuzFileDec(const string& filePath) {
     }
     ifstream inFile(filePath, ios::binary);
     if (!inFile) {
-        cerr << "Ошибка: Не удалось открыть файл " << filePath << endl;
+        cerr << "Не удалось открыть файл " << filePath << endl;
         return;
     }
     string content((istreambuf_iterator<char>(inFile)), istreambuf_iterator<char>());
     inFile.close();
     if (content.empty()) {
-        cerr << "Ошибка: Файл пуст." << endl;
+        cerr << "Файл пуст." << endl;
         return;
     }
     vector<vector<unsigned char>> Ci(32, vector<unsigned char>(LENGTH));
