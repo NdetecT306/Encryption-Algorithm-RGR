@@ -201,23 +201,21 @@ string Terminal() {
     getline(cin, input);
     return input;
 }
-std::vector<int> getUnicodeCodepoints(const std::string& utf8_string) {
-    std::vector<int> codepoints;
-    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-    std::wstring wide_string = converter.from_bytes(utf8_string);
-
+vector<int> getUnicodeCodepoints(const string& utf8_string) {
+    vector<int> codepoints;
+    wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+    wstring wide_string = converter.from_bytes(utf8_string);
     for (wchar_t wc : wide_string) {
         codepoints.push_back(static_cast<int>(wc));
     }
-
     return codepoints;
 }
 string utf8_encode(const std::vector<int>& codepoints) {
-    std::wstring wide_string;
+    wstring wide_string;
     for (int codepoint : codepoints) {
         wide_string += static_cast<wchar_t>(codepoint);
     }
-    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+    wstring_convert<codecvt_utf8<wchar_t>> converter;
     return converter.to_bytes(wide_string);
 }
 mpz_class generatePrime(int numBits) {
