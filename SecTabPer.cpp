@@ -5,6 +5,7 @@ string wstringToString(const wstring& wstr) {
     wstring_convert<codecvt_utf8<wchar_t>> converter;
     return converter.to_bytes(wstr);
 }
+
 wstring stringToWstring(const string& str) {
     wstring_convert<codecvt_utf8<wchar_t>> converter;
     return converter.from_bytes(str);
@@ -305,7 +306,7 @@ void decConsole() {
     wcout << L"Введите зашифрованный текст: ";
     getline(wcin, input);
     if (input.empty()) {
-        wcout << L"Ошибка: Введена пустая строка!" << endl;
+        wcout << L"Текст пуст" << endl;
         return;
     }
     int N = calculateTableSize(input.size());
@@ -374,7 +375,7 @@ void decFile() {
     wcout << L"Введите имя файла для расшифровки: ";
     getline(wcin, wfilename);
     if (wfilename.empty()) {
-        wcout << L"Ошибка: Не указано имя файла!" << endl;
+        wcout << L"Не указано имя файла!" << endl;
         return;
     }
     string filename = wstringToString(wfilename);
@@ -419,9 +420,11 @@ void decFile() {
         wcout << L"Файл успешно расшифрован." << endl;
 
     } catch (const exception& e) {
-        wcout << L"Ошибка: " << stringToWstring(e.what()) << endl;
+        wcout << stringToWstring(e.what()) << endl;
     }
 }
+
+
 int SecTab() {
     setlocale(LC_ALL, "");
     wcout.imbue(locale(""));
