@@ -40,6 +40,14 @@ const vector<unsigned char> Vec = {
     1, 0x94, 0x20, 0x85, 0x10, 0xC2, 0xC0, 1,
     0xFB, 1, 0xC0, 0xC2, 0x10, 0x85, 0x20, 0x94
 };
+string toHexString(const vector<unsigned char>& vec) {
+    stringstream ss;
+    ss << hex << uppercase << setfill('0');
+    for (unsigned char byte : vec) {
+        ss << setw(2) << (int)byte;
+    }
+    return ss.str();
+}
 vector<unsigned char> XOR(const vector<unsigned char>& a, const vector<unsigned char>& b) {
     vector<unsigned char> res(LENGTH);
     for (int i = 0; i < LENGTH; ++i) {
@@ -158,14 +166,6 @@ vector<unsigned char> DecryptBlock(const vector<unsigned char>& block, const vec
     }
     return resblock;
 }
-string toHexString(const vector<unsigned char>& vec) {
-    stringstream ss;
-    ss << hex << uppercase << setfill('0');
-    for (unsigned char byte : vec) {
-        ss << setw(2) << (int)byte;
-    }
-    return ss.str();
-}
 vector<unsigned char> generateRandomKey(int len) {
     random_device rd;
     ranlux24_base gen(rd());
@@ -220,11 +220,11 @@ bool createFile(const string& filePath) {
     fs::path path(filePath);
     fs::path dir = path.parent_path();
     if (!dir.empty() && !fs::exists(dir)) {
-        cout << "Директория не существует. Создать? (y/n): ";
+        cout << "Директория " << dir.string() << " не существует. Создать? (y/n): ";
         char choice;
         cin >> choice;
         if (tolower(choice) != 'y') {
-            cout << "Операция отменена. Возвращаю на главный экран." << endl;
+            cout << "Операция отменена." << endl;
             return false;
         }
         try {
@@ -234,12 +234,12 @@ bool createFile(const string& filePath) {
             return false;
         }
     }
-    cout << "Файл не существует. Создать новый файл? (y/n): ";
+    cout << "Файл " << filePath << " не существует. Создать новый файл? (y/n): ";
     char choice;
     cin >> choice;
     cin.ignore();
     if (tolower(choice) != 'y') {
-        cout << "Операция отменена. Возвращаю на главный экран." << endl;
+        cout << "Операция отменена." << endl;
         return false;
     }
     cout << "Введите текст для записи в файл: ";
@@ -305,7 +305,6 @@ void KuzFileEnc(const string& filePath) {
     }
     vector<unsigned char> key = generateRandomKey(LENGTH * 2);
     saveKey(key);
-    cout << "Ключ сохранен в файл: keykuz.txt" << endl;
     ifstream inFile(filePath, ios::binary);
     if (!inFile) {
         throw runtime_error("Не удалось открыть файл: " + filePath);
@@ -332,49 +331,76 @@ void KuzFileEnc(const string& filePath) {
     }
     outFile.write(result.c_str(), result.size());
     outFile.close();
-    cout << "Файл успешно расшифрован и перезаписан." << endl;
+    cout << "Файл успешно зашифрован." << endl;
 }
 void KuzFileDec(const string& filePath) {
     if (!fs::exists(filePath)) {
-        throw runtime_error("Файл не существует: " + filePath + "\nРасшифровка невозможна.");
+        cerr << "Ошибка: Файл " << filePath << " не существует." << endl;
+        return;
     }
-    vector<unsigned char> key = readKeyFromFile();
+    vector<unsigned char> key;
+    try {
+        key = readKeyFromFile();
+        if (key.empty()) {
+            cerr << "Не удалось загрузить ключи из файла." << endl;
+            return;
+        }
+        if (key.size() != LENGTH * 2) {
+            cerr << "Не удалось загрузить ключи из файла." << endl;
+            return;
+        }
+    } 
+    catch (const exception& e) {
+        cerr << e.what() << endl;
+        return;
+    }
     ifstream inFile(filePath, ios::binary);
     if (!inFile) {
-        throw runtime_error("Не удалось открыть файл: " + filePath);
+        cerr << "Ошибка: Не удалось открыть файл " << filePath << endl;
+        return;
     }
     string content((istreambuf_iterator<char>(inFile)), istreambuf_iterator<char>());
     inFile.close();
+    if (content.empty()) {
+        cerr << "Ошибка: Файл пуст." << endl;
+        return;
+    }
     vector<vector<unsigned char>> Ci(32, vector<unsigned char>(LENGTH));
     vector<vector<unsigned char>> iterKey(10, vector<unsigned char>(LENGTH));
-    ExpandKey(key, iterKey, Ci);
-    string result;
-    for (int i = 0; i < content.length(); i += 2*LENGTH) {
-        string hexBlock = content.substr(i, 2*LENGTH);
-        vector<unsigned char> block = hexStringToVector(hexBlock);
-        vector<unsigned char> decBlock = DecryptBlock(block, iterKey);
-        result += vectorToString(decBlock);
+    try {
+        ExpandKey(key, iterKey, Ci);
+    } catch (const exception& e) {
+        cerr << e.what() << endl;
+        return;
     }
+    string result;
+        for (size_t i = 0; i < content.length(); i += 2*LENGTH) {
+            string hexBlock = content.substr(i, 2*LENGTH);
+            if (hexBlock.empty()) continue;
+            vector<unsigned char> block = hexStringToVector(hexBlock);
+            vector<unsigned char> decBlock = DecryptBlock(block, iterKey);
+            result += vectorToString(decBlock);
+        }
     size_t end = result.find_last_not_of(' ');
     if (end != string::npos) {
         result = result.substr(0, end + 1);
     }
     ofstream outFile(filePath, ios::binary);
     if (!outFile) {
-        throw runtime_error("Не удалось перезаписать файл: " + filePath);
+        cerr << "Ошибка: Не удалось записать результат в файл." << endl;
+        return;
     }
     outFile.write(result.c_str(), result.size());
     outFile.close();
-    cout << "Файл успешно расшифрован и перезаписан." << endl;
+    cout << "Файл успешно расшифрован." << endl;
 }
 void KuzTerEnc() {
     cin.ignore();
     string message;
-    cout << "Введите текст: ";
+    cout << "Введите текст для шифровки: ";
     getline(cin, message);
     vector<unsigned char> key = generateRandomKey(LENGTH * 2);
     saveKey(key);
-    cout << "Ключ сохранен в файл: keykuz.txt" << endl;
     vector<vector<unsigned char>> Ci(32, vector<unsigned char>(LENGTH));
     vector<vector<unsigned char>> iterkey(10, vector<unsigned char>(LENGTH));
     ExpandKey(key, iterkey, Ci);
@@ -389,29 +415,63 @@ void KuzTerEnc() {
         vector<unsigned char> encBlock = EncryptBlock(block, iterkey);
         encHex += toHexString(encBlock);
     }
-    cout << "Зашифрованный текст: " << encHex << endl;
+    cout << "\nЗашифрованное сообщение (hex): " << encHex << endl;
 }
 void KuzTerDec() {
-    vector<unsigned char> key = readKeyFromFile();
+    vector<unsigned char> key;
+    try {
+        key = readKeyFromFile();
+        if (key.empty()) {
+            cerr << "Не удалось загрузить ключи из файла." << endl;
+            return;
+        }
+        if (key.size() != LENGTH * 2) {
+            cerr << "Не удалось загрузить ключи из файла." << endl;
+            return;
+        }
+    } catch (const exception& e) {
+        cerr << e.what() << endl;
+        return;
+    }
     cin.ignore();
     string encHex;
     cout << "Введите зашифрованное сообщение (hex): ";
     getline(cin, encHex);
+    if (encHex.empty()) {
+        cerr << "Текст пуст." << endl;
+        return;
+    }
     vector<vector<unsigned char>> Ci(32, vector<unsigned char>(LENGTH));
     vector<vector<unsigned char>> iterkey(10, vector<unsigned char>(LENGTH));
-    ExpandKey(key, iterkey, Ci);
+    try {
+        ExpandKey(key, iterkey, Ci);
+    } catch (const exception& e) {
+        cerr << e.what() << endl;
+        return;
+    }
     string decText;
-    for (int i = 0; i < encHex.length(); i += 2*LENGTH) {
-        string hexBlock = encHex.substr(i, 2*LENGTH);
-        vector<unsigned char> block = hexStringToVector(hexBlock);
-        vector<unsigned char> decryptedBlock = DecryptBlock(block, iterkey);
-        decText += vectorToString(decryptedBlock);
+    try {
+        for (size_t i = 0; i < encHex.length(); i += 2*LENGTH) {
+            string hexBlock = encHex.substr(i, 2*LENGTH);
+            if (hexBlock.empty()) continue;
+            
+            vector<unsigned char> block = hexStringToVector(hexBlock);
+            if (block.size() != LENGTH) {
+                cerr << "Предупреждение: Неполный блок в позиции " << i << endl;
+                continue;
+            }
+            vector<unsigned char> decryptedBlock = DecryptBlock(block, iterkey);
+            decText += vectorToString(decryptedBlock);
+        }
+    } catch (const exception& e) {
+        cerr << "Ошибка расшифровки: " << e.what() << endl;
+        return;
     }
     size_t end = decText.find_last_not_of(' ');
     if (end != string::npos) {
         decText = decText.substr(0, end + 1);
     }
-    cout << "Расшифрованные данные: " << decText << endl;
+    cout << "Расшифрованное сообщение: " << decText << endl;
 }
 int Kuzia() {
     try {
@@ -455,7 +515,6 @@ int Kuzia() {
             string filePath;
             cout << "Введите путь к файлу: ";
             getline(cin, filePath);
-            
             if (mode == 1) {
                 KuzFileEnc(filePath);
             } else {
