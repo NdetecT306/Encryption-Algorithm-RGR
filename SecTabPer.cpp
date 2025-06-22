@@ -5,7 +5,6 @@ string wstringToString(const wstring& wstr) {
     wstring_convert<codecvt_utf8<wchar_t>> converter;
     return converter.to_bytes(wstr);
 }
-
 wstring stringToWstring(const string& str) {
     wstring_convert<codecvt_utf8<wchar_t>> converter;
     return converter.from_bytes(str);
@@ -28,22 +27,34 @@ vector<unsigned char> readKey(int N) {
         getline(wcin, input);
         wstringstream ss(input);
         key.clear();
+        vector<bool> seen(N + 1, false); 
+        bool valid = true;
         int num;
         while (ss >> num) {
             if (num < 1 || num > N) {
                 wcout << L"Число должно быть от 1 до " << N << L". Попробуйте снова." << endl;
-                key.clear();
+                valid = false;
                 break;
             }
+            if (seen[num]) {
+                wcout << L"Число " << num << L" повторяется. Все числа должны быть уникальными. Попробуйте снова." << endl;
+                valid = false;
+                break;
+            }
+            seen[num] = true;
             key.push_back(static_cast<unsigned char>(num));
         }
-        if (ss.fail()) {
-            wcout << L"Ошибка: Некорректный ввод. Пожалуйста, введите числа." << endl;
-            ss.clear(); 
-            key.clear();
+        if (!valid) {
+            continue;
         }
         if (key.size() != N) {
             wcout << L"Нужно ввести ровно " << N << L" чисел. Попробуйте снова." << endl;
+            continue;
+        }
+        if (ss >> num) {
+            wcout << L"Введено больше чем " << N << L" чисел. Попробуйте снова." << endl;
+            key.clear();
+            continue;
         }
     }
     return key;
@@ -257,13 +268,9 @@ vector<vector<unsigned char>> getKeys(int N) {
     vector<vector<unsigned char>> keys(2);
     keys[0] = readKeyFromFile(KEY_FILENAME, KEY1_INDEX);
     keys[1] = readKeyFromFile(KEY_FILENAME, KEY2_INDEX);
-    if (keys[0].size() != N || keys[1].size() != N) {
-        wcout << L"Ключи не найдены или неверного размера. Введите новые ключи:" << endl;
-        wcout << L"Первый ключ:" << endl;
-        keys[0] = readKey(N);
-        wcout << L"Второй ключ:" << endl;
-        keys[1] = readKey(N);
-        saveKeysToFile(keys[0], keys[1]);
+    if (keys[0].size() != N || keys[1].size() != N || 
+        !isValidKey(keys[0], N) || !isValidKey(keys[1], N)) {
+        return vector<vector<unsigned char>>(); 
     }
     return keys;
 }
@@ -293,13 +300,24 @@ void decConsole() {
     setlocale(LC_ALL, "");
     wcout.imbue(locale(""));
     wcin.imbue(locale(""));
+
     wstring input;
     wcout << L"Введите зашифрованный текст: ";
     getline(wcin, input);
+    if (input.empty()) {
+        wcout << L"Ошибка: Введена пустая строка!" << endl;
+        return;
+    }
     int N = calculateTableSize(input.size());
+    ifstream keyFile(KEY_FILENAME);
+    if (!keyFile.is_open()) {
+        wcout << L"Не удалось загрузить ключи из файла." << endl;
+        return;
+    }
+    keyFile.close();
     auto keys = getKeys(N);
-    if (keys[0].size() != N || keys[1].size() != N) {
-        wcout << L"Неверный размер ключей!" << endl;
+    if (keys.empty() || keys[0].size() != N || keys[1].size() != N) {
+        wcout << L"Не удалось загрузить ключи из файла." << endl;
         return;
     }
     wstring plaintext = SecTabDecConsole(input, keys[0], keys[1]);
@@ -355,6 +373,10 @@ void decFile() {
     wstring wfilename;
     wcout << L"Введите имя файла для расшифровки: ";
     getline(wcin, wfilename);
+    if (wfilename.empty()) {
+        wcout << L"Ошибка: Не указано имя файла!" << endl;
+        return;
+    }
     string filename = wstringToString(wfilename);
     try {
         ifstream file(filename, ios::binary);
@@ -365,27 +387,39 @@ void decFile() {
         size_t fileSize = file.tellg();
         file.seekg(0, ios::beg);
         if (fileSize == 0) {
+            file.close();
             throw runtime_error("Файл пуст");
         }
         vector<unsigned char> ciphertext(fileSize);
         file.read(reinterpret_cast<char*>(ciphertext.data()), fileSize);
         file.close();
         int tableSize = calculateTableSize(ciphertext.size());
-        vector<vector<unsigned char>> keys = getKeys(tableSize);
-        if (keys[0].size() != tableSize || keys[1].size() != tableSize) {
-            throw runtime_error("Неверный размер ключей");
+        ifstream keyFile(KEY_FILENAME);
+        if (!keyFile.is_open()) {
+            wcout << L"Не удалось загрузить ключи из файла." << endl;
+            return;
+        }
+        keyFile.close();
+        auto keys = getKeys(tableSize);
+        if (keys.empty() || keys[0].size() != tableSize || keys[1].size() != tableSize) {
+            wcout << L"Не удалось загрузить ключи из файла." << endl;
+            return;
         }
         vector<unsigned char> plaintext = SecTabDecFile(ciphertext, keys[0], keys[1], fileSize);
-        if(plaintext.empty())
-        {
-             throw runtime_error("Ошибка при расшифровке. Возможно, использованы неверные ключи.");
+        if (plaintext.empty()) {
+            throw runtime_error("Ошибка расшифровки");
         }
         ofstream outFile(filename, ios::binary | ios::trunc);
+        if (!outFile.is_open()) {
+            throw runtime_error("Ошибка записи файла");
+        }
         outFile.write(reinterpret_cast<const char*>(plaintext.data()), plaintext.size());
         outFile.close();
-        wcout << L"Файл успешно расшифрован и перезаписан." << endl;
+
+        wcout << L"Файл успешно расшифрован." << endl;
+
     } catch (const exception& e) {
-        wcout << stringToWstring(e.what()) << endl;
+        wcout << L"Ошибка: " << stringToWstring(e.what()) << endl;
     }
 }
 int SecTab() {
